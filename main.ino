@@ -20,6 +20,7 @@ static void KeepInputSignalPinHigh();
 
 static void SetupInputPins();
 ICACHE_RAM_ATTR void OnButton1Clicked();
+ICACHE_RAM_ATTR void OnButton2Clicked();
 
 void setup() 
 {
@@ -38,9 +39,11 @@ void setup()
 
 static void SetupInputPins()
 {
-  pinMode(inputButton1Pin, OUTPUT);
-  digitalWrite(inputButton1Pin, LOW);
-  pinMode(inputButton1Pin, INPUT);
+  pinMode(inputButton1Pin, INPUT_PULLUP);
+  pinMode(inputButton2Pin, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(inputButton1Pin), OnButton1Clicked, FALLING);
+  attachInterrupt(digitalPinToInterrupt(inputButton2Pin), OnButton2Clicked, FALLING);
 }
 
 static void ApplyUserConfig()
@@ -255,22 +258,17 @@ static String SendHttpRequest(String url)
     return s;
 }
 
-static void ToggleDevice(String deviceBaseURL)
+static void ToggleDevice(int v, String deviceBaseURL)
 {
+  if (HIGH == v)
+  {
+    return;
+  }
+  
   if (deviceBaseURL.length() > 0)
   {  
     String url = deviceBaseURL + "/cm?cmnd=power%20TOGGLE";
     SendHttpRequest(url);
-  }
-}
-
-static void KeepInputPinLow(int value, int pinNum)
-{
-  if (HIGH == value)
-  {
-    pinMode(pinNum, OUTPUT);
-    digitalWrite(pinNum, LOW);
-    pinMode(pinNum, INPUT);      
   }
 }
 
@@ -286,9 +284,9 @@ static void DoTask1()
     if (x != prevX)
     {
       prevX = x; 
-      ToggleDevice(device1);
+      ToggleDevice(x, device1);
     }
-    KeepInputPinLow(x, inputButton1Pin);
+    //
   }
 }
 
@@ -304,10 +302,20 @@ static void DoTask2()
     if (x != prevX)
     {
       prevX = x; 
-      ToggleDevice(device2);
+      ToggleDevice(x, device2);
     }
-    KeepInputPinLow(x, inputButton2Pin);
+    //
   }
+}
+
+ICACHE_RAM_ATTR void OnButton1Clicked()
+{
+  //
+}
+
+ICACHE_RAM_ATTR void OnButton2Clicked()
+{
+  //
 }
 
 void loop() 
