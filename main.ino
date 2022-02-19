@@ -1,7 +1,14 @@
+#include <FS.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
-#include <FS.h>
+#include <SPI.h> 
+//#include <WiFi.h>
+#include <WiFiUdp.h>
+
+
+const int led1Pin = 2;
+const int led2Pin = 16;
 
 const int inputButton1Pin = 5;
 const int inputButton2Pin = 4;
@@ -13,6 +20,11 @@ static String wifi_passwd = "";
 
 static String device1 = "";
 static String device2 = "";
+
+static bool led1Status = false;
+static int totalSec = 0;
+static WiFiUDP Udp;
+
 
 static bool LoadUserConfig();
 static void ApplyUserConfig();
@@ -34,11 +46,16 @@ void setup()
     ApplyUserConfig();
   }
 
+  Udp.begin(8888);
+
   SetupInputPins();
 }
 
 static void SetupInputPins()
 {
+  pinMode(led1Pin, OUTPUT);
+  digitalWrite(led1Pin, HIGH);
+
   pinMode(inputButton1Pin, INPUT_PULLUP);
   pinMode(inputButton2Pin, INPUT_PULLUP);
 
@@ -171,6 +188,9 @@ static void DoConsoleTask()
       else if (command.equals("info"))
       {
         noValue = true;
+        Serial.print("TotalSec: ");
+        Serial.println(totalSec);
+
         Serial.print("SSID: ");
         Serial.println(wifi_ssid);
         Serial.print("Password: ");
@@ -265,6 +285,8 @@ static void ToggleDevice(int v, String deviceBaseURL)
     return;
   }
   
+  //Serial.println("ToggleDevice " + deviceBaseURL); return;
+  
   if (deviceBaseURL.length() > 0)
   {  
     String url = deviceBaseURL + "/cm?cmnd=power%20TOGGLE";
@@ -318,12 +340,60 @@ ICACHE_RAM_ATTR void OnButton2Clicked()
   //
 }
 
+static void DoClockTask()
+{
+  static int totalMiliSec = 0;
+  
+  static char buf[4];
+  int packetSize = Udp.parsePacket();
+  if (packetSize > 0)
+  {
+    int n = Udp.read(buf, 4);
+    if (4 == n)
+    {
+      n = buf[2];
+      n *= 256;
+      n += buf[1];
+      n *= 256;
+      n += buf[0];
+      totalSec = n;
+    }
+  }
+
+  bool isDark = (totalSec < 21600 || totalSec >= 64800);
+  if (led1Status)
+  {
+    if (!isDark)
+    {
+      led1Status = false;
+      digitalWrite(led1Pin, HIGH);
+    }    
+  }
+  else
+  {
+    if (isDark)
+    {
+      led1Status = true;
+      digitalWrite(led1Pin, LOW);
+    }    
+  }
+
+  totalMiliSec += 10;
+  if (totalMiliSec >= 1000)
+  {
+    totalMiliSec = 0;
+    ++totalSec;
+  }
+}
+
 void loop() 
 {
   DoConsoleTask();
 
   DoTask1();
   DoTask2();
+
+  DoClockTask();
   
   delay(10);
 }
