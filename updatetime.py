@@ -19,8 +19,6 @@ else:
     t = t + now.minute
     t = t * 60
     t = t + now.second
-    
-    print(str(t))
 
 buf = struct.pack('<I', t)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
